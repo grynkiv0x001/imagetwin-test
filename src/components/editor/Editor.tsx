@@ -9,17 +9,20 @@ type Box = {
   height: number;
 };
 
-const DEFAULT_CANVAS_WIDTH = 300;
-const DEFAULT_CANVAS_HEIGHT = 300;
+const CANVAS_WIDTH = 300;
+const CANVAS_HEIGHT = 300;
 
-const DEFAULT_STROKE_COLOR = '#FF0000';
-const DEFAULT_STROKE_WIDTH = 3;
+const STROKE_COLOR_SELECTED = '#00FF00';
+const STROKE_COLOR = '#FF0000';
+const STROKE_WIDTH = 3;
 
 const Editor = ({ image }: { image: string }) => {
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
   
-  const [box, setBox] = useState<Box | null>(null);
+  const [box, setBox] = useState<Box | undefined>(undefined);
   const [boxes, setBoxes] = useState<Box[]>([]);
+
+  const [selectedBox, setSelectedBox] = useState<Box | undefined>(undefined);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -45,8 +48,36 @@ const Editor = ({ image }: { image: string }) => {
     const { nativeEvent } = event;
     const { offsetX, offsetY } = nativeEvent;
 
+    const clickedBox = boxes.find(
+      (shape) =>
+        offsetX >= shape.x &&
+        offsetX <= shape.x + shape.width &&
+        offsetY >= shape.y &&
+        offsetY <= shape.y + shape.height
+    );
+
+    setSelectedBox(clickedBox);
+    setIsDrawing(clickedBox ? false : true);
+
+    if (selectedBox && box) {
+      const updatedBoxes = boxes.map((shape) =>
+        shape === selectedBox
+          ? {
+            ...shape,
+            width: offsetX - shape.x,
+            height: offsetY - shape.y,
+          }
+          :shape 
+      );
+
+      setBoxes(updatedBoxes);
+
+      setSelectedBox(undefined);
+      setBox(undefined);
+      setIsDrawing(false);
+    }
+
     setBox({ x: offsetX, y: offsetY, width: 0, height: 0 });
-    setIsDrawing(true);
   };
 
   const handleMouseMove = (event: React.MouseEvent<HTMLCanvasElement, MouseEvent>) => {
@@ -65,12 +96,21 @@ const Editor = ({ image }: { image: string }) => {
         height: offsetY - sy,
       });
     }
+
+    if (selectedBox) {
+      setBox({
+        x: selectedBox.x,
+        y: selectedBox.y,
+        width: offsetX - sx,
+        height: offsetY - sy,
+      });
+    }
   };
 
   const handleMouseUp = () => {
     if (isDrawing && box) {
       setBoxes([...boxes, box]);
-      setBox(null);
+      setBox(undefined);
       setIsDrawing(false);
     }
   };
@@ -83,7 +123,6 @@ const Editor = ({ image }: { image: string }) => {
     const context = canvas.getContext('2d');
 
     if (!context) return;
-
 
     if (image) {
       const img = new Image();
@@ -99,8 +138,8 @@ const Editor = ({ image }: { image: string }) => {
         boxes.forEach((box) => {
           context.beginPath();
 
-          context.strokeStyle = DEFAULT_STROKE_COLOR;
-          context.lineWidth = DEFAULT_STROKE_WIDTH;
+          context.strokeStyle = STROKE_COLOR;
+          context.lineWidth = STROKE_WIDTH;
 
           context.rect(box.x, box.y, box.width, box.height);
           context.stroke();
@@ -111,20 +150,38 @@ const Editor = ({ image }: { image: string }) => {
           context.rect(box.x, box.y, box.width, box.height);
           context.stroke();
         }
+
+        if (selectedBox) {
+          context.beginPath();
+          context.strokeStyle = STROKE_COLOR_SELECTED;
+          context.rect(selectedBox.x, selectedBox.y, selectedBox.width, selectedBox.height);
+          context.stroke();
+        }
       };
     }
-  }, [boxes, box, image]);
+  }, [boxes, box, selectedBox, image]);
+
+  const removeSelectedBox = () => {
+    setBoxes(boxes.filter((shape) => shape !== selectedBox));
+    setSelectedBox(undefined);
+    setBox(undefined);
+    setIsDrawing(false);
+  };
 
   return (
     <div>
       <canvas
         ref={canvasRef}
-        width={DEFAULT_CANVAS_WIDTH}
-        height={DEFAULT_CANVAS_HEIGHT}
+        width={CANVAS_WIDTH}
+        height={CANVAS_HEIGHT}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
       />
+
+      <button onClick={removeSelectedBox}>
+        Delete selected
+      </button>
     </div>
   );
 };
