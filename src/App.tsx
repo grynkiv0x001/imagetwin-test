@@ -1,10 +1,23 @@
+import { useState } from 'react';
+
 import ImageLoader from '@/components/image-loader/ImageLoader';
+import Editor from '@/components/editor/Editor';
 
 const App = () => {
+  const [image, setImage] = useState<string | null>(null);
+
   return (
     <div>
-      <div>Hello, world!</div>
-      <ImageLoader/>
+      <ImageLoader
+        image={image}
+        setImage={setImage}
+      />
+
+      {image && (
+        <div>
+          <Editor image={image}/>
+        </div>
+      )}
     </div>
   );
 };
