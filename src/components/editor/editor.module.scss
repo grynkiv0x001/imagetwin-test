@@ -1,0 +1,14 @@
+.editor {
+  // TODO: Make it responsive
+  &_canvas {
+    max-width: 800px;
+    border: 1px solid #ccc;
+    margin: 0 auto;
+
+  }
+
+  &_actions {
+    display: flex;
+    justify-content: space-between;
+  }
+}

@@ -1,6 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import style from './editor.module.css';
+import style from './editor.module.scss';
+
+type Image = {
+  id: number;
+  image: string;
+  origin_image: string;
+  boxes?: Box[];
+};
 
 type Box = {
   x: number;
@@ -9,6 +16,20 @@ type Box = {
   height: number;
 };
 
+type Handle = {
+  x: number;
+  y: number;
+  position: HandlePosition;
+};
+
+enum HandlePosition {
+  Top = 'top',
+  Bottom = 'bottom',
+  Left = 'left',
+  Right = 'right',
+  BottomRight = 'bottomRight'
+}
+
 const CANVAS_WIDTH = 300;
 const CANVAS_HEIGHT = 300;
 
@@ -16,13 +37,22 @@ const STROKE_COLOR_SELECTED = '#00FF00';
 const STROKE_COLOR = '#FF0000';
 const STROKE_WIDTH = 3;
 
-const Editor = ({ image }: { image: string }) => {
+const HANDLE_SIZE = 20;
+
+type EditorProps = {
+  image: Image;
+  handleSave: (image: string) => void;
+  handleClose: () => void;
+};
+
+const Editor = ({ image, handleSave, handleClose }: EditorProps) => {
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
   
   const [box, setBox] = useState<Box | undefined>(undefined);
   const [boxes, setBoxes] = useState<Box[]>([]);
 
   const [selectedBox, setSelectedBox] = useState<Box | undefined>(undefined);
+  const [selectedHandle, setSelectedHandle] = useState<Handle | undefined>(undefined);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -31,9 +61,13 @@ const Editor = ({ image }: { image: string }) => {
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');
 
+      if (image.boxes) {
+        setBoxes(image.boxes);
+      }
+
       if (context) {
         const img = new Image();
-        img.src = image;
+        img.src = image.origin_image;
         img.onload = () => {
           canvas.width = img.width;
           canvas.height = img.height;
@@ -43,6 +77,24 @@ const Editor = ({ image }: { image: string }) => {
       }
     }
   }, [image]);
+
+  const getHandleUnderMouse = (offsetX: number, offsetY: number, box: Box): Handle | undefined => {
+    const handles = [
+      {
+        x: box.x + box.width,
+        y: box.y + box.height,
+        position: HandlePosition.BottomRight,
+      }
+    ];
+
+    return handles.find(
+      handle =>
+        offsetX >= handle.x - HANDLE_SIZE / 2 &&
+        offsetX <= handle.x + HANDLE_SIZE / 2 &&
+        offsetY >= handle.y - HANDLE_SIZE / 2 &&
+        offsetY <= handle.y + HANDLE_SIZE / 2
+    ) || undefined;
+  };
 
   const handleMouseDown = (event: React.MouseEvent<HTMLCanvasElement, MouseEvent>) => {
     const { nativeEvent } = event;
@@ -60,21 +112,13 @@ const Editor = ({ image }: { image: string }) => {
     setIsDrawing(clickedBox ? false : true);
 
     if (selectedBox && box) {
-      const updatedBoxes = boxes.map((shape) =>
-        shape === selectedBox
-          ? {
-            ...shape,
-            width: offsetX - shape.x,
-            height: offsetY - shape.y,
-          }
-          :shape 
-      );
+      const handleUnderMouse = getHandleUnderMouse(offsetX, offsetY, selectedBox);
 
-      setBoxes(updatedBoxes);
-
-      setSelectedBox(undefined);
-      setBox(undefined);
-      setIsDrawing(false);
+      if (handleUnderMouse) {
+        setSelectedHandle(handleUnderMouse);
+      } else {
+        setSelectedHandle(undefined);
+      }
     }
 
     setBox({ x: offsetX, y: offsetY, width: 0, height: 0 });
@@ -98,22 +142,52 @@ const Editor = ({ image }: { image: string }) => {
     }
 
     if (selectedBox) {
-      setBox({
-        x: selectedBox.x,
-        y: selectedBox.y,
-        width: offsetX - sx,
-        height: offsetY - sy,
-      });
+      if (selectedHandle) {
+        setBox({
+          x: selectedBox.x,
+          y: selectedBox.y,
+          width: offsetX - selectedBox.x,
+          height: offsetY - selectedBox.y,
+        });
+      }
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (event: React.MouseEvent<HTMLCanvasElement, MouseEvent>) => {
+    const { nativeEvent } = event;
+    const { offsetX, offsetY } = nativeEvent;
+
     if (isDrawing && box) {
       setBoxes([...boxes, box]);
       setBox(undefined);
       setIsDrawing(false);
     }
+
+    if (selectedHandle) {
+      setSelectedHandle(undefined);
+
+      const updatedBoxes = boxes.map((shape) =>
+        shape === selectedBox
+          ? {
+            ...shape,
+            width: offsetX - shape.x,
+            height: offsetY - shape.y,
+          }
+          : shape
+      );
+
+      setBoxes(updatedBoxes);
+
+      setSelectedBox(undefined);
+    }
   };
+
+  const removeSelectedBox = useCallback(() => {
+    setBoxes(boxes.filter((shape) => shape !== selectedBox));
+    setSelectedBox(undefined);
+    setBox(undefined);
+    setIsDrawing(false);
+  }, [boxes, selectedBox]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -124,9 +198,19 @@ const Editor = ({ image }: { image: string }) => {
 
     if (!context) return;
 
+    const handleBackspace = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (!selectedBox) return;
+
+        removeSelectedBox();
+      }
+    };
+
+    window.addEventListener('keydown', handleBackspace);
+
     if (image) {
       const img = new Image();
-      img.src = image;
+      img.src = image.origin_image;
 
       img.onload = () => {
         canvas.width = img.width;
@@ -156,20 +240,62 @@ const Editor = ({ image }: { image: string }) => {
           context.strokeStyle = STROKE_COLOR_SELECTED;
           context.rect(selectedBox.x, selectedBox.y, selectedBox.width, selectedBox.height);
           context.stroke();
+
+          const handles = [
+            {
+              x: selectedBox.x + selectedBox.width,
+              y: selectedBox.y + selectedBox.height,
+              position: HandlePosition.BottomRight,
+            },
+          ];
+
+          handles.forEach(handle => {
+            context.beginPath();
+            context.rect(handle.x - HANDLE_SIZE / 2, handle.y - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
+            context.fillStyle = STROKE_COLOR_SELECTED;
+            context.fill();
+            context.stroke();
+          });
         }
       };
     }
-  }, [boxes, box, selectedBox, image]);
 
-  const removeSelectedBox = () => {
-    setBoxes(boxes.filter((shape) => shape !== selectedBox));
-    setSelectedBox(undefined);
-    setBox(undefined);
-    setIsDrawing(false);
+    return () => {
+      window.removeEventListener('keydown', handleBackspace);
+    };
+  }, [boxes, box, selectedBox, removeSelectedBox, image]);
+
+  const onSave = async () => {
+    if (canvasRef.current) {
+      const canvas = canvasRef.current;
+      const img = canvas.toDataURL('image/png');
+
+      const body = {
+        id: image.id,
+        image: img,
+        origin_image: image.origin_image,
+        boxes,
+      };
+
+      const response = await fetch('http://127.0.0.1:5000/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Image saved with ID:', result.id);
+      } else {
+        console.error('Failed to save image');
+      }
+    }
   };
 
   return (
-    <div>
+    <div className={style.editor}>
       <canvas
         ref={canvasRef}
         width={CANVAS_WIDTH}
@@ -177,11 +303,26 @@ const Editor = ({ image }: { image: string }) => {
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        className={style.editor_canvas}
       />
 
-      <button onClick={removeSelectedBox}>
-        Delete selected
-      </button>
+      <div className={style.editor_actions}>
+        <div>
+          <button onClick={onSave}>
+            Save
+          </button>
+          <button onClick={handleClose}>
+            Close
+          </button>
+        </div>
+
+        <button
+          onClick={removeSelectedBox}
+          className={style.editor_btn__delete}
+        >
+          Delete selected
+        </button>
+      </div>
     </div>
   );
 };
