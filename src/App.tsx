@@ -3,58 +3,39 @@ import { useEffect, useState } from 'react';
 import ImageLoader from '@/components/image-loader/ImageLoader';
 import Editor from '@/components/editor/Editor';
 
-type Box = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
-type Image = {
-  id?: number;
-  image: string;
-  origin_image: string;
-  boxes?: Box[];
-};
+import { EditorImage } from '@/types/common';
+import { deleteImage, getImages, loadImage, saveImage } from '@/api';
 
 const App = () => {
-  const [image, setImage] = useState<Image | null>(null);
-  const [imageList, setImageList] = useState<Image[]>([]);
-
+  const [image, setImage] = useState<EditorImage | null>(null);
+  const [imageList, setImageList] = useState<EditorImage[]>([]);
   const [userImage, setUserImage] = useState<string | null>(null);
 
-  const handleClose = () => {};
-
-  const handleSave = () => {};
-
-  const handleDelete = async (imageId: number) => {
-    const response = await fetch(`http://127.0.0.1:5000/delete/${imageId}`, {
-      method: 'DELETE',
-    });
-
-    if (response.ok) {
-      console.log('Image deleted');
-    } else {
-      console.error('Failed to delete image');
-    }
+  const handleSave = (imageData: EditorImage) => {
+    saveImage(imageData);
   };
 
-  const handleLoad = async (imageId: number) => {
-    const response = await fetch(`http://127.0.0.1:5000/load/${imageId}`);
-    const data = await response.json();
+  const handleClose = () => {
+    setImage(null);
+  };
 
-    setImage(data);
+  const handleDelete = async (imageId?: number) => {
+    if (!imageId) return;
+
+    deleteImage(imageId);
+  };
+
+  const handleLoad = async (imageId?: number) => {
+    if (!imageId) return;
+
+    const imageData = await loadImage(imageId);
+    setImage(imageData);
   };
 
   useEffect(() => {
-    const url = 'http://127.0.0.1:5000/overview';
-    fetch(url)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.length > 0) {
-          setImageList(data);
-        }
-      });
+    getImages().then((data) => {
+      setImageList(data);
+    });
   }, []);
 
   useEffect(() => {

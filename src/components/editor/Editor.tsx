@@ -1,34 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { Box, Handle, HandlePosition, EditorImage } from '@/types/common';
+
 import style from './editor.module.scss';
-
-type Image = {
-  id: number;
-  image: string;
-  origin_image: string;
-  boxes?: Box[];
-};
-
-type Box = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
-type Handle = {
-  x: number;
-  y: number;
-  position: HandlePosition;
-};
-
-enum HandlePosition {
-  Top = 'top',
-  Bottom = 'bottom',
-  Left = 'left',
-  Right = 'right',
-  BottomRight = 'bottomRight'
-}
 
 const CANVAS_WIDTH = 300;
 const CANVAS_HEIGHT = 300;
@@ -40,8 +14,8 @@ const STROKE_WIDTH = 3;
 const HANDLE_SIZE = 20;
 
 type EditorProps = {
-  image: Image;
-  handleSave: (image: string) => void;
+  image: EditorImage;
+  handleSave: (image: EditorImage) => void;
   handleClose: () => void;
 };
 
@@ -189,6 +163,22 @@ const Editor = ({ image, handleSave, handleClose }: EditorProps) => {
     setIsDrawing(false);
   }, [boxes, selectedBox]);
 
+  const onSave = async () => {
+    if (canvasRef.current) {
+      const canvas = canvasRef.current;
+      const img = canvas.toDataURL('image/png');
+
+      const body = {
+        id: image.id,
+        image: img,
+        origin_image: image.origin_image,
+        boxes,
+      };
+
+      handleSave(body);
+    }
+  };
+
   useEffect(() => {
     const canvas = canvasRef.current;
 
@@ -264,35 +254,6 @@ const Editor = ({ image, handleSave, handleClose }: EditorProps) => {
       window.removeEventListener('keydown', handleBackspace);
     };
   }, [boxes, box, selectedBox, removeSelectedBox, image]);
-
-  const onSave = async () => {
-    if (canvasRef.current) {
-      const canvas = canvasRef.current;
-      const img = canvas.toDataURL('image/png');
-
-      const body = {
-        id: image.id,
-        image: img,
-        origin_image: image.origin_image,
-        boxes,
-      };
-
-      const response = await fetch('http://127.0.0.1:5000/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Image saved with ID:', result.id);
-      } else {
-        console.error('Failed to save image');
-      }
-    }
-  };
 
   return (
     <div className={style.editor}>
