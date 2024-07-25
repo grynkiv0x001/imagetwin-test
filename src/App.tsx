@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 
+import { EditorImage } from '@/types/common';
+import { deleteImage, getImages, loadImage, saveImage } from '@/api';
+
+import ImageGallery from '@/components/image-gallery/ImageGallery';
 import ImageLoader from '@/components/image-loader/ImageLoader';
 import Editor from '@/components/editor/Editor';
 
-import { EditorImage } from '@/types/common';
-import { deleteImage, getImages, loadImage, saveImage } from '@/api';
+import style from './app.module.scss';
 
 const App = () => {
   const [image, setImage] = useState<EditorImage | null>(null);
@@ -12,17 +15,22 @@ const App = () => {
   const [userImage, setUserImage] = useState<string | null>(null);
 
   const handleSave = (imageData: EditorImage) => {
-    saveImage(imageData);
+    saveImage(imageData).then(() => {
+      handleClose();
+    });
   };
 
   const handleClose = () => {
     setImage(null);
+    handleOverview();
   };
 
   const handleDelete = async (imageId?: number) => {
     if (!imageId) return;
 
-    deleteImage(imageId);
+    deleteImage(imageId).then(() => {
+      handleOverview();
+    });
   };
 
   const handleLoad = async (imageId?: number) => {
@@ -32,10 +40,14 @@ const App = () => {
     setImage(imageData);
   };
 
-  useEffect(() => {
+  const handleOverview = () => {
     getImages().then((data) => {
       setImageList(data);
     });
+  };
+
+  useEffect(() => {
+    handleOverview();
   }, []);
 
   useEffect(() => {
@@ -48,29 +60,30 @@ const App = () => {
   }, [userImage]);
 
   return (
-    <div>
-      <ImageLoader
-        image={userImage}
-        setImage={setUserImage}
-      />
+    <div className={style.app}>
+      <header className={style.app_header}>
+        <p className={style.app_header_heading}>Image Editor</p>
 
-      <p>Image List</p>
+        <ImageLoader
+          image={userImage}
+          setImage={setUserImage}
+        />
+      </header>
 
-      {imageList.map((image) => (
-        <div key={image.id} onClick={() => handleLoad(image.id)}>
-          <img src={image.image} alt="image"/>
-          <button onClick={() => handleDelete(image.id)}>Delete image</button>
-        </div>
-      ))}
-
-      {image && (
-        <div>
+      {image ? (
+        <div className={style.app_body}>
           <Editor
             image={image}
             handleSave={handleSave}
             handleClose={handleClose}
           />
         </div>
+      ) : (
+        <ImageGallery
+          images={imageList}
+          handleLoad={handleLoad}
+          handleDelete={handleDelete}
+        />
       )}
     </div>
   );

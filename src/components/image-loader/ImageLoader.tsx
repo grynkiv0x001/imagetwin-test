@@ -26,8 +26,14 @@ const ImageLoader = ({ setImage }: ImageLoaderProps) => {
 
   return (
     <div className={style.imageLoader}>
-      <input type="file" id="file-input" onChange={handleFileInput}/>
-      <button id="file-button">Open Image</button>
+      <label className={style.imageLoader_label}>
+        Open Image
+        <input
+          type="file"
+          onChange={handleFileInput}
+          accept='image/png, image/jpeg'
+        />
+      </label>
     </div>
   );
 };

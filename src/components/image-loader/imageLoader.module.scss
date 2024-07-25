@@ -1,3 +1,24 @@
 .imageLoader {
   display: flex;
+
+  input {
+    display: none;
+  }
+
+  &_label {
+    padding: 8px 16px;
+
+    background-color: var(--clr-white);
+    border: 2px solid var(--clr-success);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease-in;
+    text-transform: uppercase;
+    color: var(--clr-success);
+
+    &:hover {
+      background-color: var(--clr-success);
+      color: var(--clr-white);
+    }
+  }
 }

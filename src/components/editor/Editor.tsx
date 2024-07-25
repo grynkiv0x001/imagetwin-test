@@ -7,8 +7,8 @@ import style from './editor.module.scss';
 const CANVAS_WIDTH = 300;
 const CANVAS_HEIGHT = 300;
 
-const STROKE_COLOR_SELECTED = '#00FF00';
-const STROKE_COLOR = '#FF0000';
+const STROKE_COLOR_SELECTED = '#0F0';
+const STROKE_COLOR = '#F00';
 const STROKE_WIDTH = 3;
 
 const HANDLE_SIZE = 20;
@@ -29,6 +29,8 @@ const Editor = ({ image, handleSave, handleClose }: EditorProps) => {
   const [selectedHandle, setSelectedHandle] = useState<Handle | undefined>(undefined);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  console.log('Boxes: ', boxes);
 
   useEffect(() => {
     if (image && canvasRef.current) {
@@ -70,17 +72,36 @@ const Editor = ({ image, handleSave, handleClose }: EditorProps) => {
     ) || undefined;
   };
 
+  const normalizeBox = (box: Box): Box => {
+    const normalizedBox = { ...box };
+
+    if (normalizedBox.width < 0) {
+      normalizedBox.x += normalizedBox.width;
+      normalizedBox.width *= -1;
+    }
+
+    if (normalizedBox.height < 0) {
+      normalizedBox.y += normalizedBox.height;
+      normalizedBox.height *= -1;
+    }
+
+    return normalizedBox;
+  };
+
   const handleMouseDown = (event: React.MouseEvent<HTMLCanvasElement, MouseEvent>) => {
     const { nativeEvent } = event;
     const { offsetX, offsetY } = nativeEvent;
 
-    const clickedBox = boxes.find(
-      (shape) =>
-        offsetX >= shape.x &&
-        offsetX <= shape.x + shape.width &&
-        offsetY >= shape.y &&
-        offsetY <= shape.y + shape.height
-    );
+    const clickedBox = boxes.find((shape) => {
+      const normalized = normalizeBox(shape);
+
+      return (
+        offsetX >= normalized.x &&
+        offsetX <= normalized.x + normalized.width &&
+        offsetY >= normalized.y &&
+        offsetY <= normalized.y + normalized.height
+      );
+    });
 
     setSelectedBox(clickedBox);
     setIsDrawing(clickedBox ? false : true);
@@ -268,21 +289,38 @@ const Editor = ({ image, handleSave, handleClose }: EditorProps) => {
       />
 
       <div className={style.editor_actions}>
-        <div>
-          <button onClick={onSave}>
+        <div className={style.editor_actions__left}>
+          <button
+            onClick={onSave}
+            className={[
+              style.editor_btn,
+              style.editor_btn__save,
+            ].join(' ')}
+          >
             Save
           </button>
-          <button onClick={handleClose}>
+          <button
+            onClick={handleClose}
+            className={[
+              style.editor_btn,
+              style.editor_btn__close,
+            ].join(' ')}
+          >
             Close
           </button>
         </div>
 
-        <button
-          onClick={removeSelectedBox}
-          className={style.editor_btn__delete}
-        >
-          Delete selected
-        </button>
+        {selectedBox && (
+          <button
+            onClick={removeSelectedBox}
+            className={[
+              style.editor_btn,
+              style.editor_btn__delete,
+            ].join(' ')}
+          >
+            Delete selected
+          </button>
+        )}
       </div>
     </div>
   );
